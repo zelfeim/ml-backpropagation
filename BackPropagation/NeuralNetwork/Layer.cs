@@ -1,3 +1,4 @@
+using BackPropagation.ActivationFunction;
 using BackPropagation.Neuron;
 
 namespace BackPropagation.NeuralNetwork;
@@ -6,16 +7,31 @@ public class Layer
 {
     public List<INeuron> Neurons;
 
-    public Layer(int previousLayerSize, int layerSize)
+    public Layer(int layerSize)
     {
-        // Are there more neuron types?
-        for (int i = 0; i < layerSize; ++i)
-        {
-        }
+        Neurons = new List<INeuron>(layerSize);
+
+        for (var i = 0; i < layerSize; i++)
+            Neurons.Add(new Neuron.Neuron(layerSize));
     }
 
-    public List<double> Evaluate(List<double> inputs)
+    public Layer(List<INeuron> neurons)
     {
-        return Neurons.Select(n => n.Calculate(inputs)).ToList();
+        Neurons = neurons;
+    }
+
+    public List<double> ActivationValues => Neurons.Select(n => n.Activation).ToList();
+
+    public void SetActivationValues(List<double> values)
+    {
+        for (var i = 0; i < values.Count; i++)
+            Neurons[i].Activation = values[i];
+    }
+
+    public List<double> Evaluate(Layer previousLayer, IActivationFunction _activationFunction)
+    {
+        return Neurons
+            .Select(n => n.Calculate(previousLayer.ActivationValues, _activationFunction))
+            .ToList();
     }
 }

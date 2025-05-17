@@ -1,4 +1,4 @@
-namespace BackPropagation;
+namespace BackPropagation.ActivationFunction;
 
 public interface IActivationFunction
 {
