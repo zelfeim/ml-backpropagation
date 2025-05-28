@@ -27,12 +27,50 @@ public class NeuralNetwork : INeuralNetwork
             Layers.Add(new Layer(i));
     }
 
-    public void Train(List<double> inputs, List<double> expectedOutputs)
+    public void Train(List<double> inputs, List<double> targets)
     {
         var results = Evaluate(inputs).ActivationValues;
 
-        var errorSum = results.Select((t, i) => Math.Pow(expectedOutputs[i] - t, 2)).Sum();
+        var errorSum = results.Select((t, i) => Math.Pow(targets[i] - t, 2)).Sum();
         Console.WriteLine($"Error: {errorSum}");
+    }
+
+    public void Backpropagate(List<double> inputs, List<double> targets)
+    {
+        var activationFunctionDerivative = (double x) =>
+            _activationFunction.Function(x) * (1 - _activationFunction.Function(x));
+
+        Evaluate(inputs);
+
+        // Output layer
+
+        var outputLayer = Layers.Last();
+
+        var outputLayerDelta = outputLayer
+            .Neurons.Select(
+                (n, i) =>
+                {
+                    var error = targets[i] - n.Activation;
+                    return error * activationFunctionDerivative.Invoke(n.WeightedInput);
+                }
+            )
+            .ToList();
+
+        // Hidden layers
+
+        var nextLayer = outputLayer;
+        foreach (var layer in Layers.Skip(1).SkipLast(1).Reverse())
+        {
+            layer.Neurons.Select(
+                (n, i) =>
+                {
+                    var error = nextLayer.ActivationValues[i] * outputLayerDelta[i];
+                    return error * activationFunctionDerivative.Invoke(n.WeightedInput);
+                }
+            );
+
+            nextLayer = layer;
+        }
     }
 
     public Layer Evaluate(List<double> inputs)

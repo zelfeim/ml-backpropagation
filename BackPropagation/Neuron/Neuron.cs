@@ -19,13 +19,16 @@ public class Neuron : INeuron
         _bias = bias;
     }
 
+    public double WeightedInput { get; set; }
     public List<double> Weights { get; set; }
     public double Activation { get; set; }
 
-    public double Calculate(List<double> inputs, IActivationFunction _activationFunction)
+    public double Calculate(List<double> inputs, IActivationFunction activationFunction)
     {
         var result = inputs.Select((t, i) => t * Weights[i]).Sum() + _bias;
-        Activation = _activationFunction.Function(result);
+        WeightedInput = result;
+        Activation = activationFunction.Function(result);
+
         return Activation;
     }
 
