@@ -27,49 +27,92 @@ public class NeuralNetwork : INeuralNetwork
             Layers.Add(new Layer(i));
     }
 
-    public void Train(List<double> inputs, List<double> targets)
+    public void Train(
+        List<double> inputs,
+        List<double> targets,
+        int iterationCount,
+        double learningRate = 0.01
+    )
     {
-        var results = Evaluate(inputs).ActivationValues;
+        for (var i = 0; i < iterationCount; ++i)
+        {
+            Console.WriteLine($"Iteration: {i}");
 
-        var errorSum = results.Select((t, i) => Math.Pow(targets[i] - t, 2)).Sum();
-        Console.WriteLine($"Error: {errorSum}");
+            var results = Evaluate(inputs).ActivationValues;
+            var errorSum = results.Select((t, i) => Math.Pow(targets[i] - t, 2)).Sum();
+            Console.WriteLine($"Error: {errorSum}");
+
+            Backpropagate(targets, learningRate);
+
+            i++;
+        }
     }
 
-    public void Backpropagate(List<double> inputs, List<double> targets)
+    private void Backpropagate(List<double> targets, double learningRate)
     {
-        var activationFunctionDerivative = (double x) =>
-            _activationFunction.Function(x) * (1 - _activationFunction.Function(x));
+        CalculateDeltas(targets, ActivationFunctionDerivative);
+        AdjustNeurons(learningRate);
+        return;
 
-        Evaluate(inputs);
+        double ActivationFunctionDerivative(double x)
+        {
+            return _activationFunction.Function(x) * (1 - _activationFunction.Function(x));
+        }
+    }
 
+    private void CalculateDeltas(
+        List<double> targets,
+        Func<double, double> activationFunctionDerivative
+    )
+    {
         // Output layer
-
         var outputLayer = Layers.Last();
-
-        var outputLayerDelta = outputLayer
-            .Neurons.Select(
-                (n, i) =>
-                {
-                    var error = targets[i] - n.Activation;
-                    return error * activationFunctionDerivative.Invoke(n.WeightedInput);
-                }
-            )
-            .ToList();
+        var i = 0;
+        outputLayer.Neurons.ForEach(n =>
+        {
+            var error = targets[i] - n.Activation;
+            n.Delta = error * activationFunctionDerivative.Invoke(n.WeightedInput);
+            i++;
+        });
 
         // Hidden layers
-
-        var nextLayer = outputLayer;
+        var previousLayer = outputLayer;
         foreach (var layer in Layers.Skip(1).SkipLast(1).Reverse())
         {
-            layer.Neurons.Select(
-                (n, i) =>
-                {
-                    var error = nextLayer.ActivationValues[i] * outputLayerDelta[i];
-                    return error * activationFunctionDerivative.Invoke(n.WeightedInput);
-                }
-            );
+            layer.Neurons.ForEach(n =>
+            {
+                var weightedError = previousLayer.Neurons.Aggregate(
+                    0.0,
+                    (current, neuron) => current + neuron.Activation * neuron.Delta
+                );
 
-            nextLayer = layer;
+                n.Delta = weightedError * activationFunctionDerivative.Invoke(n.WeightedInput);
+            });
+
+            previousLayer = layer;
+        }
+    }
+
+    private void AdjustNeurons(double learningRate)
+    {
+        for (var i = 1; i < Layers.Count; i++)
+        {
+            var layer = Layers[i];
+            var previousLayer = Layers[i - 1];
+
+            layer.Neurons.ForEach(n =>
+            {
+                n.Bias += learningRate * n.Delta;
+                for (
+                    var previousNeuronIndex = 0;
+                    previousNeuronIndex < previousLayer.Neurons.Count;
+                    previousNeuronIndex++
+                )
+                    n.Weights[previousNeuronIndex] +=
+                        learningRate
+                        * n.Delta
+                        * previousLayer.ActivationValues[previousNeuronIndex];
+            });
         }
     }
 
