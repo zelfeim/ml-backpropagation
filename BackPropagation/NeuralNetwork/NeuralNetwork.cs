@@ -19,75 +19,85 @@ public class NeuralNetwork : INeuralNetwork
         _activationFunction = activationFunction;
     }
 
+    public List<double> Errors { get; } = [];
+
     private List<Layer> Layers { get; } = [];
 
     private void InitializeLayers(List<int> networkStructure)
     {
-        foreach (var i in networkStructure)
-            Layers.Add(new Layer(i));
+        Layers.Add(new Layer(networkStructure[0]));
+
+        for (var i = 1; i < networkStructure.Count; i++)
+            Layers.Add(new Layer(networkStructure[i], networkStructure[i - 1]));
     }
 
     public void Train(
-        List<double> inputs,
-        List<double> targets,
-        int iterationCount,
-        double learningRate = 0.01
+        List<List<double>> inputs,
+        List<List<double>> targets,
+        int epochs,
+        double learningRate = 0.3
     )
     {
-        for (var i = 0; i < iterationCount; ++i)
+        if (inputs.Count != targets.Count)
+            throw new ArgumentException("Inputs and targets count must be equal");
+
+        if (inputs[0].Count != Layers.First().Neurons.Count)
+            throw new ArgumentException("Inputs count must be equal to input layer size");
+
+        if (targets[0].Count != Layers.Last().Neurons.Count)
+            throw new ArgumentException("Targets count must be equal to output layer size");
+
+        for (var i = 0; i < epochs; ++i)
         {
-            Console.WriteLine($"Iteration: {i}");
+            var random = new Random();
 
-            var results = Evaluate(inputs).ActivationValues;
-            var errorSum = results.Select((t, i) => Math.Pow(targets[i] - t, 2)).Sum();
-            Console.WriteLine($"Error: {errorSum}");
+            var randomIndex = random.Next(0, inputs.Count);
+            var randomInput = inputs[randomIndex];
+            var randomTarget = targets[randomIndex];
 
-            Backpropagate(targets, learningRate);
+            var results = Evaluate(randomInput).ActivationValues;
+            var error = results.Select((t, j) => Math.Pow(randomTarget[j] - t, 2)).Sum();
+            Errors.Add(error);
+            if (i % 1000 == 0)
+                Console.WriteLine($"Epoch: {i}, Error: {error}");
 
-            i++;
+            Backpropagate(randomTarget, learningRate);
         }
     }
 
     private void Backpropagate(List<double> targets, double learningRate)
     {
-        CalculateDeltas(targets, ActivationFunctionDerivative);
+        CalculateDeltas(targets);
         AdjustNeurons(learningRate);
-        return;
-
-        double ActivationFunctionDerivative(double x)
-        {
-            return _activationFunction.Function(x) * (1 - _activationFunction.Function(x));
-        }
     }
 
-    private void CalculateDeltas(
-        List<double> targets,
-        Func<double, double> activationFunctionDerivative
-    )
+    private void CalculateDeltas(List<double> targets)
     {
         // Output layer
         var outputLayer = Layers.Last();
-        var i = 0;
-        outputLayer.Neurons.ForEach(n =>
+
+        for (var i = 0; i < outputLayer.Neurons.Count; i++)
         {
-            var error = targets[i] - n.Activation;
-            n.Delta = error * activationFunctionDerivative.Invoke(n.WeightedInput);
-            i++;
-        });
+            var error = targets[i] - outputLayer.Neurons[i].Activation;
+            outputLayer.Neurons[i].Delta =
+                error * _activationFunction.Derivative.Invoke(outputLayer.Neurons[i].WeightedInput);
+        }
 
         // Hidden layers
         var previousLayer = outputLayer;
         foreach (var layer in Layers.Skip(1).SkipLast(1).Reverse())
         {
-            layer.Neurons.ForEach(n =>
+            for (var i = 0; i < layer.Neurons.Count; i++)
             {
                 var weightedError = previousLayer.Neurons.Aggregate(
                     0.0,
-                    (current, neuron) => current + neuron.Activation * neuron.Delta
+                    (current, neuron) => current + neuron.Weights[i] * neuron.Delta
                 );
 
-                n.Delta = weightedError * activationFunctionDerivative.Invoke(n.WeightedInput);
-            });
+                layer.Neurons[i].Delta =
+                    weightedError
+                    * _activationFunction.Derivative.Invoke(layer.Neurons[i].WeightedInput);
+            }
 
             previousLayer = layer;
         }

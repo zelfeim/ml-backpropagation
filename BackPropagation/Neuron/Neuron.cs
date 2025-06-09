@@ -6,7 +6,7 @@ public class Neuron : INeuron
 {
     public Neuron(int weightCount)
     {
-        Weights = new List<double>(weightCount);
+        Weights = new List<double>(Enumerable.Repeat(0.0, weightCount));
 
         InitializeWeights();
     }

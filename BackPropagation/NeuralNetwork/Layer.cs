@@ -7,12 +7,16 @@ public class Layer
 {
     public List<INeuron> Neurons;
 
-    public Layer(int layerSize)
+    public Layer(int layerSize, int previousLayerSize = 0)
     {
         Neurons = new List<INeuron>(layerSize);
 
         for (var i = 0; i < layerSize; i++)
-            Neurons.Add(new Neuron.Neuron(layerSize));
+            Neurons.Add(
+                previousLayerSize != 0
+                    ? new Neuron.Neuron(previousLayerSize)
+                    : new Neuron.Neuron(layerSize)
+            );
     }
 
     public Layer(List<INeuron> neurons)
